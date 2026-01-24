@@ -1,38 +1,73 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { translations, summaries, type Translation, type InsertTranslation, type Summary, type InsertSummary } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, sql, desc } from "drizzle-orm";
+import { authStorage } from "./replit_integrations/auth/storage"; // Import if needed, or just use authStorage separately
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  // Translations
+  createTranslation(translation: InsertTranslation): Promise<Translation>;
+  getTranslations(userId: string): Promise<Translation[]>;
+  getTodayTranslations(userId: string): Promise<Translation[]>;
+
+  // Summaries
+  createSummary(summary: InsertSummary): Promise<Summary>;
+  getSummaries(userId: string): Promise<Summary[]>;
+  getSummaryByDate(userId: string, date: Date): Promise<Summary | undefined>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async createTranslation(insertTranslation: InsertTranslation): Promise<Translation> {
+    const [translation] = await db.insert(translations).values(insertTranslation).returning();
+    return translation;
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getTranslations(userId: string): Promise<Translation[]> {
+    return db
+      .select()
+      .from(translations)
+      .where(eq(translations.userId, userId))
+      .orderBy(desc(translations.createdAt));
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async getTodayTranslations(userId: string): Promise<Translation[]> {
+    return db
+      .select()
+      .from(translations)
+      .where(
+        and(
+          eq(translations.userId, userId),
+          sql`DATE(${translations.createdAt}) = CURRENT_DATE`
+        )
+      )
+      .orderBy(desc(translations.createdAt));
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async createSummary(insertSummary: InsertSummary): Promise<Summary> {
+    const [summary] = await db.insert(summaries).values(insertSummary).returning();
+    return summary;
+  }
+
+  async getSummaries(userId: string): Promise<Summary[]> {
+    return db
+      .select()
+      .from(summaries)
+      .where(eq(summaries.userId, userId))
+      .orderBy(desc(summaries.date));
+  }
+
+  async getSummaryByDate(userId: string, date: Date): Promise<Summary | undefined> {
+    // Simple check for same day
+    const [summary] = await db
+      .select()
+      .from(summaries)
+      .where(
+        and(
+          eq(summaries.userId, userId),
+          sql`DATE(${summaries.date}) = DATE(${date.toISOString()})`
+        )
+      );
+    return summary;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
