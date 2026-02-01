@@ -1,9 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { api } from "@shared/routes";
-import { z } from "zod";
 import OpenAI from "openai";
 
 const openai = new OpenAI({
@@ -15,19 +13,55 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Setup Auth FIRST
-  await setupAuth(app);
-  registerAuthRoutes(app);
+  // Login endpoint
+  app.post("/api/auth/login", async (req, res) => {
+    const { username, password } = req.body;
+    
+    const user = await storage.getUserByCredentials(username, password);
+    
+    if (user) {
+      // Set session
+      if (!req.session) req.session = {} as any;
+      (req.session as any).userId = user.id;
+      
+      return res.json({ success: true });
+    }
+    
+    res.status(401).json({ message: "Invalid credentials" });
+  });
+
+  // Check auth endpoint
+  app.get("/api/auth/check", (req, res) => {
+    if ((req.session as any)?.userId) {
+      return res.json({ authenticated: true });
+    }
+    res.status(401).json({ authenticated: false });
+  });
+
+  // Logout endpoint
+  app.post("/api/auth/logout", (req, res) => {
+    req.session?.destroy(() => {});
+    res.json({ success: true });
+  });
+
+  // Auth middleware
+  const requireAuth = (req: any, res: any, next: any) => {
+    if ((req.session as any)?.userId) {
+      req.user = { claims: { sub: (req.session as any).userId } };
+      return next();
+    }
+    res.status(401).json({ message: "Unauthorized" });
+  };
 
   // Protected routes
-  app.post(api.translations.create.path, isAuthenticated, async (req, res) => {
+  app.post(api.translations.create.path, requireAuth, async (req, res) => {
     try {
       const { text } = api.translations.create.input.parse(req.body);
       const userId = (req.user as any).claims.sub;
 
       // Call OpenAI
       const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
+        model: "deepseek-chat",
         messages: [
           {
             role: "system",
@@ -61,13 +95,13 @@ export async function registerRoutes(
     }
   });
 
-  app.get(api.translations.list.path, isAuthenticated, async (req, res) => {
+  app.get(api.translations.list.path, requireAuth, async (req, res) => {
     const userId = (req.user as any).claims.sub;
     const items = await storage.getTranslations(userId);
     res.json(items);
   });
 
-  app.post(api.summaries.generate.path, isAuthenticated, async (req, res) => {
+  app.post(api.summaries.generate.path, requireAuth, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
       
@@ -84,7 +118,7 @@ export async function registerRoutes(
       ).join("\n");
 
       const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
+        model: "deepseek-chat",
         messages: [
           {
             role: "system",
@@ -122,7 +156,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get(api.summaries.list.path, isAuthenticated, async (req, res) => {
+  app.get(api.summaries.list.path, requireAuth, async (req, res) => {
     const userId = (req.user as any).claims.sub;
     const items = await storage.getSummaries(userId);
     res.json(items);

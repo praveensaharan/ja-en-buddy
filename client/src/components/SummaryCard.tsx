@@ -13,7 +13,7 @@ interface SummaryCardProps {
 
 export function SummaryCard({ summary }: SummaryCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const vocabList = summary.vocab as string[] | null;
+  const vocabList = summary.vocab as any[] | null;
 
   return (
     <Card className="overflow-hidden border-border/60 shadow-sm hover:shadow-md transition-shadow duration-300">
@@ -60,13 +60,13 @@ export function SummaryCard({ summary }: SummaryCardProps) {
                     <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Key Vocabulary</h4>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {vocabList.map((word, idx) => (
+                    {vocabList.map((item, idx) => (
                       <Badge 
                         key={idx} 
                         variant="secondary" 
                         className="text-sm py-1 px-3 bg-background border border-border/50 hover:border-primary/50 transition-colors"
                       >
-                        {word}
+                        {typeof item === 'string' ? item : `${item.word} (${item.reading}) - ${item.meaning}`}
                       </Badge>
                     ))}
                   </div>

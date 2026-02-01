@@ -1,16 +1,14 @@
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import type { Translation } from "@shared/schema";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Bot, User } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
 
 interface ChatBubbleProps {
   data: Translation;
 }
 
 export function ChatBubble({ data }: ChatBubbleProps) {
-  const { user } = useAuth();
 
   return (
     <motion.div 
@@ -31,7 +29,6 @@ export function ChatBubble({ data }: ChatBubbleProps) {
           </div>
         </div>
         <Avatar className="w-8 h-8 md:w-10 md:h-10 border-2 border-background shadow-sm order-last">
-          <AvatarImage src={user?.profileImageUrl || undefined} />
           <AvatarFallback className="bg-secondary text-secondary-foreground">
             <User className="w-4 h-4" />
           </AvatarFallback>

@@ -1,24 +1,19 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
-import { 
-  MessageSquare, 
-  BookOpen, 
-  LogOut, 
-  Menu, 
-  X,
-  Languages,
-  User
-} from "lucide-react";
+import { MessageSquare, BookOpen, LogOut, Menu, Languages, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const { user, logout } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/";
+  };
 
   const navItems = [
     { href: "/", label: "Chat", icon: MessageSquare },
@@ -59,18 +54,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <div className="mt-auto p-6 border-t border-border/50 bg-secondary/30">
         <div className="flex items-center gap-3 mb-4">
           <Avatar className="w-10 h-10 border-2 border-background shadow-sm">
-            <AvatarImage src={user?.profileImageUrl || undefined} />
             <AvatarFallback><User className="w-5 h-5 text-muted-foreground" /></AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate">{user?.firstName || "User"}</p>
-            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+            <p className="text-sm font-semibold truncate">User</p>
           </div>
         </div>
         <Button 
           variant="outline" 
           className="w-full justify-start gap-2 hover:bg-destructive/5 hover:text-destructive hover:border-destructive/20"
-          onClick={() => logout()}
+          onClick={handleLogout}
         >
           <LogOut className="w-4 h-4" />
           Sign Out
