@@ -2,18 +2,46 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Summary } from "@shared/schema";
-import { Calendar, ChevronDown, ChevronUp, Book } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, Book, Mail } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useSendSummaryEmail } from "@/hooks/use-summaries";
+import { useToast } from "@/hooks/use-toast";
 
 interface SummaryCardProps {
   summary: Summary;
+  userEmail?: string;
 }
 
-export function SummaryCard({ summary }: SummaryCardProps) {
+export function SummaryCard({ summary, userEmail }: SummaryCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const vocabList = summary.vocab as any[] | null;
+  const { mutate: sendEmail, isPending } = useSendSummaryEmail();
+  const { toast } = useToast();
+
+  const handleSendEmail = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const email = userEmail || prompt("Enter your email:");
+    if (!email) return;
+    
+    sendEmail({ email, summaryId: summary.id }, {
+      onSuccess: () => {
+        toast({
+          title: "Email Sent!",
+          description: "Summary has been sent to your email.",
+        });
+      },
+      onError: (err) => {
+        toast({
+          title: "Failed to send",
+          description: err.message,
+          variant: "destructive",
+        });
+      }
+    });
+  };
 
   return (
     <Card className="overflow-hidden border-border/60 shadow-sm hover:shadow-md transition-shadow duration-300">
@@ -34,9 +62,21 @@ export function SummaryCard({ summary }: SummaryCardProps) {
             </p>
           </div>
         </div>
-        <button className="text-muted-foreground hover:text-foreground transition-colors p-2">
-          {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSendEmail}
+            disabled={isPending}
+            className="gap-2"
+          >
+            <Mail className="w-4 h-4" />
+            {isPending ? "Sending..." : "Email"}
+          </Button>
+          <button className="text-muted-foreground hover:text-foreground transition-colors p-2">
+            {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
       <AnimatePresence>

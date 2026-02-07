@@ -3,6 +3,15 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import OpenAI from "openai";
+import { sendSummaryEmail } from "./email";
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: { claims: { sub: string } };
+    }
+  }
+}
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -101,6 +110,20 @@ export async function registerRoutes(
     res.json(items);
   });
 
+  app.get("/api/translations/history", requireAuth, async (req, res) => {
+  const userId = (req.user as any).claims.sub;
+  const history = await storage.getTranslationHistory(userId);
+  res.json(history);
+  });
+
+  app.get("/api/translations/date/:date", requireAuth, async (req, res) => {
+  const userId = (req.user as any).claims.sub;
+  const { date } = req.params;
+  const translations = await storage.getTranslationsByDate(userId, new Date(date));
+  res.json(translations);
+  });
+
+
   app.post(api.summaries.generate.path, requireAuth, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
@@ -108,7 +131,7 @@ export async function registerRoutes(
       // Check if already exists for today? (Optional, but user asked for "Once per day")
       // For MVP, we'll just generate a new one or overwrite. Let's just generate.
       
-      const translations = await storage.getTodayTranslations(userId);
+      const translations = await storage.getTranslations(userId);
       if (translations.length === 0) {
         return res.status(200).json({ message: "No translations today to summarize." });
       }
@@ -160,6 +183,41 @@ export async function registerRoutes(
     const userId = (req.user as any).claims.sub;
     const items = await storage.getSummaries(userId);
     res.json(items);
+  });
+
+  app.post(api.summaries.sendEmail.path, requireAuth, async (req, res) => {
+    try {
+      const { email, summaryId } = api.summaries.sendEmail.input.parse(req.body);
+      const userId = (req.user as any).claims.sub;
+      
+      let summary;
+      if (summaryId) {
+        // Send specific summary
+        const summaries = await storage.getSummaries(userId);
+        summary = summaries.find(s => s.id === summaryId);
+        if (!summary) {
+          return res.status(404).json({ message: "Summary not found" });
+        }
+      } else {
+        // Send latest summary
+        const summaries = await storage.getSummaries(userId);
+        summary = summaries[0]; // Assuming they're ordered by date desc
+        if (!summary) {
+          return res.status(404).json({ message: "No summaries found" });
+        }
+      }
+
+      const success = await sendSummaryEmail(email, summary.content);
+      
+      if (success) {
+        res.json({ success: true, message: "Summary sent successfully!" });
+      } else {
+        res.status(500).json({ message: "Failed to send email" });
+      }
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Failed to send summary email" });
+    }
   });
 
   return httpServer;

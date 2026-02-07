@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 import ChatPage from "@/pages/ChatPage";
+import HistoryPage from "@/pages/HistoryPage";
 import SummariesPage from "@/pages/SummariesPage";
 import LoginPage from "@/pages/LoginPage";
 import NotFound from "@/pages/not-found";
@@ -45,6 +46,9 @@ function Router() {
     <Switch>
       <Route path="/">
         <ProtectedRoute component={ChatPage} />
+      </Route>
+      <Route path="/history">
+        <ProtectedRoute component={HistoryPage} />
       </Route>
       <Route path="/summaries">
         <ProtectedRoute component={SummariesPage} />

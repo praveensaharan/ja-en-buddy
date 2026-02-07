@@ -1,13 +1,14 @@
 import { translations, summaries, type Translation, type InsertTranslation, type Summary, type InsertSummary } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, sql, asc, desc } from "drizzle-orm";
 import { authStorage } from "./replit_integrations/auth/storage";
 
 export interface IStorage {
   // Translations
   createTranslation(translation: InsertTranslation): Promise<Translation>;
   getTranslations(userId: string): Promise<Translation[]>;
-  getTodayTranslations(userId: string): Promise<Translation[]>;
+  getTranslationsByDate(userId: string, date: Date): Promise<Translation[]>;
+  getTranslationHistory(userId: string): Promise<{ date: string; count: number }[]>;
 
   // Summaries
   createSummary(summary: InsertSummary): Promise<Summary>;
@@ -26,25 +27,43 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTranslations(userId: string): Promise<Translation[]> {
-    return db
-      .select()
-      .from(translations)
-      .where(eq(translations.userId, userId))
-      .orderBy(desc(translations.createdAt));
+  return db
+    .select()
+    .from(translations)
+    .where(
+      and(
+        eq(translations.userId, userId),
+        sql`DATE(${translations.createdAt}) = CURRENT_DATE`
+      )
+    )
+    .orderBy(asc(translations.createdAt));
   }
 
-  async getTodayTranslations(userId: string): Promise<Translation[]> {
-    return db
-      .select()
-      .from(translations)
-      .where(
-        and(
-          eq(translations.userId, userId),
-          sql`DATE(${translations.createdAt}) = CURRENT_DATE`
-        )
+  async getTranslationsByDate(userId: string, date: Date): Promise<Translation[]> {
+  return db
+    .select()
+    .from(translations)
+    .where(
+      and(
+        eq(translations.userId, userId),
+        sql`DATE(${translations.createdAt}) = DATE(${date.toISOString()})`
       )
-      .orderBy(desc(translations.createdAt));
+    )
+    .orderBy(asc(translations.createdAt));
   }
+
+  async getTranslationHistory(userId: string): Promise<{ date: string; count: number }[]> {
+  const result = await db
+    .select({
+      date: sql<string>`DATE(${translations.createdAt})`,
+      count: sql<number>`COUNT(*)::int`
+    })
+    .from(translations)
+    .where(eq(translations.userId, userId))
+    .groupBy(sql`DATE(${translations.createdAt})`)
+    .orderBy(desc(sql`DATE(${translations.createdAt})`));
+  return result;
+ }
 
   async createSummary(insertSummary: InsertSummary): Promise<Summary> {
     const [summary] = await db.insert(summaries).values(insertSummary).returning();

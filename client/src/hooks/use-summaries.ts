@@ -38,3 +38,23 @@ export function useGenerateSummary() {
     },
   });
 }
+
+export function useSendSummaryEmail() {
+  return useMutation({
+    mutationFn: async ({ email, summaryId }: { email: string; summaryId?: number }) => {
+      const res = await fetch(api.summaries.sendEmail.path, {
+        method: api.summaries.sendEmail.method,
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, summaryId }),
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to send email");
+      }
+      
+      return res.json();
+    },
+  });
+}

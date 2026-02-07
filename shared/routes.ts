@@ -23,6 +23,22 @@ export const api = {
         200: z.array(z.custom<typeof translations.$inferSelect>()),
         401: z.object({ message: z.string() }),
       }
+    },
+    history: {
+      method: 'GET' as const,
+      path: '/api/translations/history',
+      responses: {
+        200: z.array(z.object({ date: z.string(), count: z.number() })),
+        401: z.object({ message: z.string() }),
+      }
+    },
+    byDate: {
+      method: 'GET' as const,
+      path: '/api/translations/date/:date',
+      responses: {
+        200: z.array(z.custom<typeof translations.$inferSelect>()),
+        401: z.object({ message: z.string() }),
+      }
     }
   },
   summaries: {
@@ -42,6 +58,20 @@ export const api = {
       responses: {
         200: z.array(z.custom<typeof summaries.$inferSelect>()),
         401: z.object({ message: z.string() }),
+      }
+    },
+    sendEmail: {
+      method: 'POST' as const,
+      path: '/api/summaries/send-email',
+      input: z.object({
+        email: z.string().email(),
+        summaryId: z.number().optional()
+      }),
+      responses: {
+        200: z.object({ success: z.boolean(), message: z.string() }),
+        400: z.object({ message: z.string() }),
+        401: z.object({ message: z.string() }),
+        500: z.object({ message: z.string() }),
       }
     }
   }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { MessageSquare, BookOpen, LogOut, Menu, Languages, User } from "lucide-react";
+import { MessageSquare, BookOpen, LogOut, Menu, Languages, User, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -17,6 +17,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { href: "/", label: "Chat", icon: MessageSquare },
+    { href: "/history", label: "History", icon: History },
     { href: "/summaries", label: "Daily Summaries", icon: BookOpen },
   ];
 
