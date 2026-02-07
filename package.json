@@ -9,8 +9,7 @@
     "start": "node dist/index.cjs",
     "check": "tsc",
     "db:push": "drizzle-kit push",
-    "vercel-build": "npm run build",
-    "cron:daily": "tsx start-cron.ts"
+    "vercel-build": "npm run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
