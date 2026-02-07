@@ -220,5 +220,79 @@ export async function registerRoutes(
     }
   });
 
+  // Cron endpoint for daily summary
+  app.post("/api/cron/daily-summary", async (req, res) => {
+    try {
+      const { secret } = req.body;
+      
+      if (secret !== process.env.CRON_SECRET) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const userId = 'pra40109';
+      const email = 'pra40109@gmail.com';
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const summaries = await storage.getSummaries(userId);
+      const todaySummary = summaries.find(s => {
+        const summaryDate = new Date(s.date);
+        summaryDate.setHours(0, 0, 0, 0);
+        return summaryDate.getTime() === today.getTime();
+      });
+      
+      let summaryToSend;
+      
+      if (!todaySummary) {
+        const translations = await storage.getTranslations(userId);
+        if (translations.length === 0) {
+          return res.json({ message: "No translations found" });
+        }
+        
+        const inputForSummary = translations.map(t => 
+          `Original: ${t.originalText} | JP: ${t.japanese} | EN: ${t.english}`
+        ).join('\n');
+        
+        const response = await openai.chat.completions.create({
+          model: 'deepseek-chat',
+          messages: [
+            {
+              role: 'system',
+              content: `Analyze these translations. Extract vocabulary (word, reading, meaning), key kanji, and grammar patterns.
+              Create a learning summary.
+              Return JSON: { 
+                "content": "markdown string of the summary", 
+                "vocab": [{ "word": "...", "reading": "...", "meaning": "..." }] 
+              }`
+            },
+            { role: 'user', content: inputForSummary }
+          ],
+          response_format: { type: 'json_object' }
+        });
+        
+        const content = response.choices[0].message.content;
+        if (!content) throw new Error('No response from AI');
+        
+        const parsed = JSON.parse(content);
+        
+        summaryToSend = await storage.createSummary({
+          userId,
+          content: parsed.content,
+          vocab: parsed.vocab,
+          date: new Date()
+        });
+      } else {
+        summaryToSend = todaySummary;
+      }
+      
+      const success = await sendSummaryEmail(email, summaryToSend.content);
+      res.json({ success, message: success ? 'Email sent' : 'Email failed' });
+    } catch (err) {
+      console.error('Cron job error:', err);
+      res.status(500).json({ message: "Failed" });
+    }
+  });
+
   return httpServer;
 }

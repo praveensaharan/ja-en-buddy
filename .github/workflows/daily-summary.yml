@@ -1,0 +1,16 @@
+name: Daily Summary Email
+
+on:
+  schedule:
+    - cron: '0 12 * * *'  # 9 PM Tokyo time (UTC+9 = 12:00 UTC)
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  send-summary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Daily Summary
+        run: |
+          curl -X POST ${{ secrets.APP_URL }}/api/cron/daily-summary \
+            -H "Content-Type: application/json" \
+            -d '{"secret": "${{ secrets.CRON_SECRET }}"}'

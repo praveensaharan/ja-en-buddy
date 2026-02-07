@@ -4,10 +4,6 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import session from "express-session";
-import cron from 'node-cron';
-import { storage } from './storage.js';
-import { sendSummaryEmail } from './email.js';
-import OpenAI from 'openai';
 
 const app = express();
 const httpServer = createServer(app);
@@ -117,86 +113,5 @@ app.use((req, res, next) => {
   const port = parseInt(process.env.PORT || "5000", 10);
   httpServer.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
-    
-    // Start daily summary cron job
-    const openai = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-    });
-    
-    cron.schedule('0 21 * * *', async () => {
-      try {
-        log('Running daily summary job...', 'cron');
-        
-        const userId = 'pra40109';
-        const email = 'pra40109@gmail.com';
-        
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const summaries = await storage.getSummaries(userId);
-        const todaySummary = summaries.find(s => {
-          const summaryDate = new Date(s.date);
-          summaryDate.setHours(0, 0, 0, 0);
-          return summaryDate.getTime() === today.getTime();
-        });
-        
-        let summaryToSend;
-        
-        if (!todaySummary) {
-          const translations = await storage.getTranslations(userId);
-          if (translations.length === 0) {
-            log('No translations found. Skipping email.', 'cron');
-            return;
-          }
-          
-          const inputForSummary = translations.map(t => 
-            `Original: ${t.originalText} | JP: ${t.japanese} | EN: ${t.english}`
-          ).join('\n');
-          
-          const response = await openai.chat.completions.create({
-            model: 'deepseek-chat',
-            messages: [
-              {
-                role: 'system',
-                content: `Analyze these translations. Extract vocabulary (word, reading, meaning), key kanji, and grammar patterns.
-                Create a learning summary.
-                Return JSON: { 
-                  "content": "markdown string of the summary", 
-                  "vocab": [{ "word": "...", "reading": "...", "meaning": "..." }] 
-                }`
-              },
-              { role: 'user', content: inputForSummary }
-            ],
-            response_format: { type: 'json_object' }
-          });
-          
-          const content = response.choices[0].message.content;
-          if (!content) throw new Error('No response from AI');
-          
-          const parsed = JSON.parse(content);
-          
-          summaryToSend = await storage.createSummary({
-            userId,
-            content: parsed.content,
-            vocab: parsed.vocab,
-            date: new Date()
-          });
-          
-          log('Summary generated successfully', 'cron');
-        } else {
-          summaryToSend = todaySummary;
-        }
-        
-        const success = await sendSummaryEmail(email, summaryToSend.content);
-        log(success ? 'Daily summary email sent!' : 'Failed to send email', 'cron');
-      } catch (error) {
-        console.error('Error in daily summary job:', error);
-      }
-    }, {
-      timezone: 'Asia/Tokyo'
-    });
-    
-    log('Daily summary cron job started (8 PM Tokyo time)', 'cron');
   });
 })();
