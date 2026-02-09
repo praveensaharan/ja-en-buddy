@@ -2,7 +2,7 @@ name: Daily Summary Email
 
 on:
   schedule:
-    - cron: '0 12 * * *'  # 9 PM Tokyo time (UTC+9 = 12:00 UTC)
+    - cron: '0 11 * * *'  # 8 PM Tokyo time (UTC+9 = 11:00 UTC)
   workflow_dispatch:  # Manual trigger
 
 jobs:
